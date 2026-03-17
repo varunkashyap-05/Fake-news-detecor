@@ -35,11 +35,11 @@ SYSTEM_INSTRUCTION = """You are an expert fact-checker, journalist, and digital 
 Analyze the provided content (which could be text, an article, an image, or a video) and determine if it is real, fake news, misleading, or satire.
 
 Provide a response strictly in this format:
-🚨 **Verdict:** [Real / Fake / Misleading / Satire / Unverified]
+ **Verdict:** [Real / Fake / Misleading / Satire / Unverified]
 
-📝 **Explanation:** [Provide a detailed explanation. Point out any manipulated elements, logical fallacies, lack of sources, or known hoaxes.]
+ **Explanation:** [Provide a detailed explanation. Point out any manipulated elements, logical fallacies, lack of sources, or known hoaxes.]
 
-🔍 **Context & Facts:** [Provide the actual truth, background context, or correct information regarding the topic.]
+ **Context & Facts:** [Provide the actual truth, background context, or correct information regarding the topic.]
 """
 
 # ==========================================
@@ -63,13 +63,13 @@ def extract_text_from_url(url: str) -> str:
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles the /start command."""
     welcome_message = (
-        "👋 Welcome to the **AI Fact-Checker Bot**!\n\n"
+        " Welcome to the **AI Fact-Checker Bot**!\n\n"
         "I can help you identify fake news, deepfakes, and misleading posts. "
         "Here is what you can send me:\n"
-        "🔗 **Links:** Send a news article or blog post URL.\n"
-        "📝 **Text:** Forward suspicious messages or claims.\n"
-        "📸 **Images:** Send photos (with or without captions) to check for manipulation.\n"
-        "🎥 **Videos:** Send short video clips to analyze the context.\n\n"
+        " **Links:** Send a news article or blog post URL.\n"
+        " **Text:** Forward suspicious messages or claims.\n"
+        " **Images:** Send photos (with or without captions) to check for manipulation.\n"
+        " **Videos:** Send short video clips to analyze the context.\n\n"
         "Send me something to verify!"
     )
     await update.message.reply_text(welcome_message, parse_mode='Markdown')
@@ -77,14 +77,14 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles plain text and URLs."""
     user_text = update.message.text
-    status_msg = await update.message.reply_text("⏳ Analyzing text...")
+    status_msg = await update.message.reply_text(" Analyzing text...")
 
     # Find all URLs in the message
     urls = re.findall(r'(https?://[^\s]+)', user_text)
     extracted_content = ""
 
     if urls:
-        await status_msg.edit_text(f"🔗 Found {len(urls)} link(s). Extracting webpage content...")
+        await status_msg.edit_text(f" Found {len(urls)} link(s). Extracting webpage content...")
         for url in urls:
             # Run blocking web scraper in a separate thread so the bot doesn't freeze
             content = await asyncio.to_thread(extract_text_from_url, url)
@@ -93,7 +93,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     prompt = f"{SYSTEM_INSTRUCTION}\n\nUser Message/Claim: {user_text}\n{extracted_content}"
 
     try:
-        await status_msg.edit_text("🧠 Fact-checking with Gemini AI...")
+        await status_msg.edit_text(" Fact-checking with Gemini AI...")
         model = genai.GenerativeModel(MODEL_NAME)
         response = model.generate_content(prompt, safety_settings=SAFETY_SETTINGS)
         
@@ -104,7 +104,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await status_msg.edit_text(response.text)
             
     except Exception as e:
-        await status_msg.edit_text(f"❌ An error occurred during analysis: {e}")
+        await status_msg.edit_text(f" An error occurred during analysis: {e}")
 
 async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles Photos and Videos."""
@@ -117,14 +117,14 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif message.video:
         # Telegram Bot API limits standard downloads to 20MB
         if message.video.file_size > 20 * 1024 * 1024:
-            await message.reply_text("❌ This video is too large. Telegram bots can only process files up to 20MB.")
+            await message.reply_text(" This video is too large. Telegram bots can only process files up to 20MB.")
             return
         file_obj = await message.video.get_file()
         media_type = 'video'
     else:
         return
 
-    status_msg = await message.reply_text(f"📥 Downloading {media_type}...")
+    status_msg = await message.reply_text(f" Downloading {media_type}...")
 
     # Download file to a temporary location
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4" if media_type == 'video' else ".jpg") as temp_file:
@@ -132,12 +132,12 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
         temp_path = temp_file.name
 
     try:
-        await status_msg.edit_text("☁️ Uploading media to Gemini AI for analysis...")
+        await status_msg.edit_text(" Uploading media to Gemini AI for analysis...")
         gemini_file = genai.upload_file(path=temp_path)
 
         # Videos require processing time in Gemini's backend
         if media_type == 'video':
-            await status_msg.edit_text("⚙️ Processing video frames and audio (this may take a few seconds)...")
+            await status_msg.edit_text(" Processing video frames and audio (this may take a few seconds)...")
             while gemini_file.state.name == 'PROCESSING':
                 await asyncio.sleep(3)
                 gemini_file = genai.get_file(gemini_file.name)
@@ -145,7 +145,7 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if gemini_file.state.name == 'FAILED':
                 raise Exception("Gemini failed to process the video.")
 
-        await status_msg.edit_text("🧠 Analyzing media content for manipulation and context...")
+        await status_msg.edit_text(" Analyzing media content for manipulation and context...")
         
         caption = message.caption or "No caption provided by the user."
         prompt = f"{SYSTEM_INSTRUCTION}\n\nHere is a {media_type} shared by the user. User's caption: '{caption}'. Please analyze the media and caption for authenticity."
@@ -162,7 +162,7 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
         genai.delete_file(gemini_file.name)
 
     except Exception as e:
-        await status_msg.edit_text(f"❌ An error occurred: {e}")
+        await status_msg.edit_text(f" An error occurred: {e}")
     finally:
         # Always clean up the local temporary file
         if os.path.exists(temp_path):
@@ -173,7 +173,7 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==========================================
 def main():
     if TELEGRAM_TOKEN == "YOUR_TELEGRAM_BOT_TOKEN" or GEMINI_API_KEY == "YOUR_GEMINI_API_KEY":
-        print("⚠️ ERROR: Please set your TELEGRAM_TOKEN and GEMINI_API_KEY inside the script or via Environment Variables.")
+        print(" ERROR: Please set your TELEGRAM_TOKEN and GEMINI_API_KEY inside the script or via Environment Variables.")
         return
 
     # Build the bot application
@@ -189,7 +189,7 @@ def main():
     # Handle images and videos
     app.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO, handle_media))
 
-    print("✅ Fact-Checker Bot is running! Press Ctrl+C to stop.")
+    print(" Fact-Checker Bot is running! Press Ctrl+C to stop.")
     app.run_polling()
 
 if __name__ == "__main__":
